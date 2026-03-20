@@ -200,6 +200,7 @@ module hart #(
     reg [31:0] mem_wb_inst;
     reg [31:0] mem_wb_alu_res;
     reg [31:0] mem_wb_mem_data;
+    reg [31:0] mem_wb_testmem_data;
     reg [4:0]  mem_wb_rd;
     // MEM/WB Control
     reg        mem_wb_reg_write;
@@ -369,7 +370,7 @@ module hart #(
 
     // ID/EX Pipeline Register Update
     always @(posedge i_clk) begin
-        if (i_rst || ctrl_mux || branch_taken) begin // Flush on stall OR branch
+        if (i_rst ) begin // Flush on stall OR branch     || ctrl_mux
             id_ex_pc         <= 0;
             id_ex_inst       <= NOP_INST;
             id_ex_rs1_data   <= 0;
@@ -506,12 +507,15 @@ module hart #(
 
     wire [3:0] mem_dmem_mask;
     wire [31:0] mem_aligned_address;
+    wire [31:0] mem_aligned_data;
 
     address_aligner addr_align (
         .func_3(ex_mem_inst[14:12]),
         .address(ex_mem_alu_res),
+        .data(ex_mem_rs2_data),
         .mask(mem_dmem_mask),
-        .aligned_address(mem_aligned_address)
+        .aligned_address(mem_aligned_address),
+        .aligned_data(mem_aligned_data)
     );
 
     // Drive Data Memory outputs from EX/MEM stage
@@ -519,14 +523,17 @@ module hart #(
     assign o_dmem_ren   = ex_mem_mem_read;
     assign o_dmem_wen   = ex_mem_mem_write;
     assign o_dmem_mask  = mem_dmem_mask;
-    assign o_dmem_wdata = ex_mem_rs2_data; // Pre-aligned if needed by architecture (WISC standard relies on mask)
+    assign o_dmem_wdata = mem_aligned_data; // Pre-aligned if needed by architecture (WISC standard relies on mask)
 
     wire [31:0] mem_aligned_rdata;
+    wire [31:0] mem_testbench_rdata;
+
     data_aligner dat_align (
         .data(i_dmem_rdata),
         .mask(mem_dmem_mask),
         .func_3(ex_mem_inst[14:12]),
-        .data_output(mem_aligned_rdata)
+        .data_output(mem_aligned_rdata),
+        .data_testbench_output(mem_testbench_rdata)
     );
 
     // MEM/WB Pipeline Register Update
@@ -554,6 +561,7 @@ module hart #(
             mem_wb_inst         <= ex_mem_inst;
             mem_wb_alu_res      <= ex_mem_alu_res;
             mem_wb_mem_data     <= mem_aligned_rdata;
+            mem_wb_testmem_data <= mem_testbench_rdata;
             mem_wb_rd           <= ex_mem_rd;
             mem_wb_reg_write    <= ex_mem_reg_write;
             mem_wb_mem_to_reg   <= ex_mem_mem_to_reg;
@@ -567,8 +575,8 @@ module hart #(
             mem_wb_dmem_ren     <= ex_mem_mem_read;
             mem_wb_dmem_wen     <= ex_mem_mem_write;
             mem_wb_dmem_mask    <= mem_dmem_mask;
-            mem_wb_dmem_wdata   <= ex_mem_rs2_data;
-            mem_wb_dmem_rdata   <= mem_aligned_rdata;
+            mem_wb_dmem_wdata   <= mem_aligned_data;
+            mem_wb_dmem_rdata   <= mem_testbench_rdata;
         end
     end
 
@@ -605,7 +613,7 @@ module hart #(
     assign o_retire_dmem_wen   = mem_wb_dmem_wen;
     assign o_retire_dmem_mask  = mem_wb_dmem_mask;
     assign o_retire_dmem_wdata = mem_wb_dmem_wdata;
-    assign o_retire_dmem_rdata = mem_wb_dmem_rdata;
+    assign o_retire_dmem_rdata = mem_wb_testmem_data;
 
 endmodule
 

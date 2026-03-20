@@ -95,10 +95,10 @@ module rf #(
     generate 
         if(BYPASS_EN) begin  : generate_block
             // Do for both read port 1 and 2
-            assign o_rs1_rdata = (i_rs1_raddr == 5'b00000 || (i_rd_wen && i_rd_waddr == 5'b00000)) ? 32'b0 :
+            assign o_rs1_rdata = (i_rs1_raddr == 5'b00000 ) ? 32'b0 :  // || (i_rd_wen && i_rd_waddr == 5'b00000)
                 (i_rd_wen && (i_rd_waddr == i_rs1_raddr)) ? i_rd_wdata : 
                 memory[i_rs1_raddr];
-            assign o_rs2_rdata = (i_rs2_raddr == 5'b00000 || (i_rd_wen && i_rd_waddr == 5'b00000)) ? 32'b0 :
+            assign o_rs2_rdata = (i_rs2_raddr == 5'b00000 ) ? 32'b0 : // || (i_rd_wen && i_rd_waddr == 5'b00000)
                 (i_rd_wen && (i_rd_waddr == i_rs2_raddr)) ? i_rd_wdata : 
                 memory[i_rs2_raddr];
         end

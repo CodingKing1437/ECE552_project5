@@ -8,13 +8,17 @@ module address_aligner(
     // Address of value to be read/written to
     input wire [31:0] address,
 
+    input wire [31:0] data,
+
     // mask for alignment, used by hart
     output wire [3:0] mask,
 
-    output wire [31:0] aligned_address
+    output wire [31:0] aligned_address,
+
+    output wire [31:0] aligned_data
 );
     // 0 = word, 1 = half-word, 2 = byte
-    wire [3:0] bit_length;
+    wire [2:0] bit_length;
     assign bit_length = (func_3 == 3'b000 | func_3 == 3'b100) ? 3'b100 : // byte
                         (func_3 == 3'b001 | func_3 == 3'b101) ? 3'b010 : // half word
                         (func_3 == 3'b010) ? 3'b001 : // word
@@ -35,6 +39,15 @@ module address_aligner(
                              (address[3:0] == 4'h9 | address[3:0] == 4'hA | address[3:0] == 4'hB) ? {address[31:4], 4'h8} :
                              (address[3:0] == 4'hD | address[3:0] == 4'hE | address[3:0] == 4'hF) ? {address[31:4], 4'hC} :
                              address;
+
+    assign aligned_data = (mask == 4'b1111) ? data :
+                         (mask == 4'b0011) ? {{16{data[15]}}, data[15:0]} :
+                         (mask == 4'b1100) ? {data[15:0], 16'b0} :
+                         (mask == 4'b0001) ? {{24{data[7]}}, data[7:0]} :
+                         (mask == 4'b0010) ? {{16{data[7]}}, data[7:0], 8'b0} :
+                         (mask == 4'b0100) ? {{8{data[7]}}, data[7:0], 16'b0} :
+                         (mask == 4'b1000) ? {data[7:0], 24'b0} : data;
+                             
 
 endmodule
 

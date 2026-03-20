@@ -63,7 +63,7 @@ module control_block(
     assign JALR = (opcode == 7'b110_0111) ? 1'b1 : 1'b0;
 
     // general is_jump signal
-    assign is_jump = (opcode == 7'b110_1111 | opcode == 7'b110_0111) ? 1 : 0;
+    //assign is_jump = (opcode == 7'b110_1111 | opcode == 7'b110_0111) ? 1 : 0;
 
     // ALU_src is 1 when the second ALU operand needs to be an immediate instead of a register.
     // This includes: I-type Arithmetic, Loads, Stores, LUI, and AUIPC.

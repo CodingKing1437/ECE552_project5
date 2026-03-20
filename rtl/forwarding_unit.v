@@ -14,18 +14,31 @@ module forwarding_unit (
     // 00: from ID/EX (no hazard)
     // 10: from EX/MEM (prior ALU result)
     // 01: from MEM/WB (prior memory/ALU result)
-    output reg [1:0] forward_a_ex,
-    output reg [1:0] forward_b_ex,
+    output wire [1:0] forward_a_ex,
+    output wire [1:0] forward_b_ex,
 
     // Forwarding to ID stage (Branch Comparator / JALR)
     // 00: from Register File (no hazard)
     // 10: from EX/MEM
     // 01: from MEM/WB
-    output reg [1:0] forward_a_id,
-    output reg [1:0] forward_b_id
+    output wire [1:0] forward_a_id,
+    output wire [1:0] forward_b_id
 );
+    assign forward_a_id = (ex_mem_reg_write && (ex_mem_rd != 0) && (ex_mem_rd == if_id_rs1)) ? 2'b10 :
+                          (mem_wb_reg_write && (mem_wb_rd != 0) && (mem_wb_rd == if_id_rs1)) ? 2'b01 : 2'b00;
 
-    always @(*) begin
+    assign forward_b_id = (ex_mem_reg_write && (ex_mem_rd != 0) && (ex_mem_rd == if_id_rs2)) ? 2'b10 :
+                          (mem_wb_reg_write && (mem_wb_rd != 0) && (mem_wb_rd == if_id_rs2)) ? 2'b01 : 2'b00;
+
+    assign forward_a_ex = (ex_mem_reg_write && (ex_mem_rd != 0) && (ex_mem_rd == id_ex_rs1)) ? 2'b10 :
+                          (mem_wb_reg_write && (mem_wb_rd != 0) && (mem_wb_rd == id_ex_rs1)) ? 2'b01 : 2'b00;
+
+    assign forward_b_ex = (ex_mem_reg_write && (ex_mem_rd != 0) && (ex_mem_rd == id_ex_rs2)) ? 2'b10 :
+                          (mem_wb_reg_write && (mem_wb_rd != 0) && (mem_wb_rd == id_ex_rs2)) ? 2'b01 : 2'b00;
+                          
+
+
+    /**always @(*) begin
         // --- Forwarding to EX Stage ---
         forward_a_ex = 2'b00;
         forward_b_ex = 2'b00;
@@ -63,7 +76,7 @@ module forwarding_unit (
         end else if (mem_wb_reg_write && (mem_wb_rd != 0) && (mem_wb_rd == if_id_rs2)) begin
             forward_b_id = 2'b01;
         end
-    end
+    end **/
 
 endmodule
 `default_nettype wire
