@@ -217,6 +217,9 @@ module hart #(
     reg [31:0] mem_wb_dmem_wdata;
     reg [31:0] mem_wb_dmem_rdata;
 
+    wire [31:0] mem_aligned_rdata;
+    wire id_jalr;
+
     // =========================================================================
     // STAGE 1: INSTRUCTION FETCH (IF)
     // =========================================================================
@@ -233,11 +236,12 @@ module hart #(
     always @(posedge i_clk) begin
         if (i_rst) begin
             pc_reg <= RESET_ADDR;
-        end else if (pc_write) begin
+        end else if (pc_write || (branch_taken && id_jalr)) begin
             pc_reg <= pc_next;
         end
     end
 
+    // IF/ID Pipeline Register Update
     always @(posedge i_clk) begin
         if (i_rst || branch_taken) begin
             if_id_pc    <= 0;
@@ -278,22 +282,23 @@ module hart #(
         .o_rs2_rdata(rf_read_data_2)
     );
 
+    // Decode & Control
+    wire id_i_sub, id_i_unsigned, id_i_arith, id_reg_write, id_mem_read, id_mem_write;
+    wire id_branch, id_mem_to_reg, id_auipc, id_jump, id_alu_src, id_lui, id_halt;
+    wire [2:0] id_alu_op;
+
     // Hazard and Forwarding logic signals
     wire ctrl_mux;
     wire [1:0] forward_a_id;
     wire [1:0] forward_b_id;
 
     // Forwarding Muxes for ID Stage (Branching/JALR)
-    wire [31:0] id_forwarded_rs1 = (forward_a_id == 2'b10) ? ex_mem_alu_res :
-                                   (forward_a_id == 2'b01) ? wb_write_data : rf_read_data_1;
+    wire [31:0] id_forwarded_rs1 = (forward_a_id == 2'b10 && !id_jalr) ? ex_mem_alu_res : //  from MEM
+                                   (forward_a_id == 2'b10 && id_jalr) ? mem_aligned_rdata : // from EX rf
+                                   (forward_a_id == 2'b01) ? wb_write_data : rf_read_data_1; // from WB
 
-    wire [31:0] id_forwarded_rs2 = (forward_b_id == 2'b10) ? ex_mem_alu_res :
-                                   (forward_b_id == 2'b01) ? wb_write_data : rf_read_data_2;
-
-    // Decode & Control
-    wire id_i_sub, id_i_unsigned, id_i_arith, id_reg_write, id_mem_read, id_mem_write;
-    wire id_branch, id_mem_to_reg, id_auipc, id_jump, id_jalr, id_alu_src, id_lui, id_halt;
-    wire [2:0] id_alu_op;
+    wire [31:0] id_forwarded_rs2 = (forward_b_id == 2'b10) ? ex_mem_alu_res : // from MEM
+                                   (forward_b_id == 2'b01) ? wb_write_data : rf_read_data_2; // from WB
 
     control_block ctrl (
         .opcode(id_opcode),
@@ -370,7 +375,7 @@ module hart #(
 
     // ID/EX Pipeline Register Update
     always @(posedge i_clk) begin
-        if (i_rst ) begin // Flush on stall OR branch     || ctrl_mux
+        if (i_rst) begin // Flush on stall OR branch     || ctrl_mux
             id_ex_pc         <= 0;
             id_ex_inst       <= NOP_INST;
             id_ex_rs1_data   <= 0;
@@ -525,7 +530,7 @@ module hart #(
     assign o_dmem_mask  = mem_dmem_mask;
     assign o_dmem_wdata = mem_aligned_data; // Pre-aligned if needed by architecture (WISC standard relies on mask)
 
-    wire [31:0] mem_aligned_rdata;
+    
     wire [31:0] mem_testbench_rdata;
 
     data_aligner dat_align (
